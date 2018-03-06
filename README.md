@@ -9,9 +9,12 @@ principles Rust follows regarding memory safety, even if there is a learning cur
 low level as C, but nearly as safe and clean as a pure functional language. 
 
 ## If you want to run
+
+```
 clone
 cargo build
 cargo run
+```
 
 ## testing
 you can write tests to stdin when you run the program with the CNF format:
