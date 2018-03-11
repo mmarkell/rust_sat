@@ -76,7 +76,7 @@ fn positives_and_negatives(vars: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
     let mut positives = Vec::new();
     let mut negatives = Vec::new();
     for v in vars {
-        if v > 0 {
+        if v >= 0 {
             if !positives.contains(&v) {
                 positives.push(v);
             }
@@ -84,8 +84,6 @@ fn positives_and_negatives(vars: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
             if !negatives.contains(&v) {
                 negatives.push(v);
             }
-        } else {
-            panic!("no zeros plz");
         }
     }
     return (positives, negatives);
