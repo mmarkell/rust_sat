@@ -1,23 +1,22 @@
-use input;
+use encoder;
 use std::vec::Vec;
 use std::iter::FromIterator;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-pub fn solve_formulas(formulas: Vec<input::FORMULA>) {
+pub fn solve_formulas(formulas: Vec<encoder::FORMULA>) {
     for formula in formulas {
         let ((positive, negative), successful) = solve(formula_and_variables(formula));
         if !successful {
             println!("unsat");
         } else {
-            println!("{:?}", positive);
-            println!("{:?}", negative);
+            encoder::format_output(positive, negative);
         }
         println!("\n");
     }
 }
 
-pub fn solve((formula, mut used_vars, new_vars): (input::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
+pub fn solve((formula, mut used_vars, new_vars): (encoder::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
     let (formula, _) = pure_literal_elimination(propagate_units(formula));
     let clauses = formula.clauses.clone();
     let new_clauses = formula.clauses.clone();
@@ -46,12 +45,12 @@ pub fn solve((formula, mut used_vars, new_vars): (input::FORMULA, Vec<i32>, Vec<
             let x = new_vars[0];
             let mut old_used = used_vars.clone();
             used_vars.push(x);
-            let ((l, r), s) = solve((input::FORMULA {clauses: new_clauses, units: units}, used_vars, new_vars[1..].to_vec()));
-            if s {
+            let ((l, r), s) = solve((encoder::FORMULA {clauses: new_clauses, units: units}, used_vars, new_vars[1..].to_vec()));
+            if s == true || x == 0 {
                 return ((l, r), s);
             } else {
                 old_used.push(-1 * x);
-                let ((l, r), s) = solve((input::FORMULA {clauses: copy_new_clauses, units: copy_units}, old_used, new_vars[1..].to_vec()));
+                let ((l, r), s) = solve((encoder::FORMULA {clauses: copy_new_clauses, units: copy_units}, old_used, new_vars[1..].to_vec()));
                 if s {
                     return ((l, r), s)
                 }
@@ -90,17 +89,15 @@ fn positives_and_negatives(vars: Vec<i32>) -> (Vec<i32>, Vec<i32>) {
 }
 
 fn some_empty_clause(clauses: HashSet<Vec<i32>>) -> bool {
-    if clauses.len() > 1 {
-        for clause in clauses {
-            if clause.is_empty() {
-                return true;
-            }
+    for clause in clauses {
+        if clause.is_empty() {
+            return true;
         }
     }
     return false;
 }
 
-fn is_satisfiable(formula: input::FORMULA, input_vars: Vec<i32>) -> bool {
+fn is_satisfiable(formula: encoder::FORMULA, input_vars: Vec<i32>) -> bool {
     for clause in formula.clauses {
         let mut some_true = false;
         for variable in clause {
@@ -116,7 +113,6 @@ fn is_satisfiable(formula: input::FORMULA, input_vars: Vec<i32>) -> bool {
         }
     }
 
-    let clone_units = formula.units.clone();
     for unit in formula.units {
         if !(input_vars.contains(&unit)) {
             return false;
@@ -126,7 +122,7 @@ fn is_satisfiable(formula: input::FORMULA, input_vars: Vec<i32>) -> bool {
     return true;
 }
 
-fn formula_and_variables(formula: input::FORMULA) -> (input::FORMULA, Vec<i32>, Vec<i32>) {
+fn formula_and_variables(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec<i32>, Vec<i32>) {
     let clauses_clone = formula.clauses.clone();
     let clause_vars = formula.clauses.clone();
     let unit_vars = formula.units.clone();
@@ -144,10 +140,10 @@ fn formula_and_variables(formula: input::FORMULA) -> (input::FORMULA, Vec<i32>, 
         }
     }
     variables.dedup();
-    return (input::FORMULA {clauses: clauses_clone, units: formula.units }, Vec::new(), variables);
+    return (encoder::FORMULA {clauses: clauses_clone, units: formula.units }, Vec::new(), variables);
 }
 
-fn propagate_units(mut formula: input::FORMULA) -> input::FORMULA {
+fn propagate_units(mut formula: encoder::FORMULA) -> encoder::FORMULA {
 
     fn not_in(u: &i32, clause: &Vec<i32>) -> bool {
         return !clause.iter().any(|v| (*v == *u));
@@ -159,12 +155,12 @@ fn propagate_units(mut formula: input::FORMULA) -> input::FORMULA {
     }
 
     let new_units = Vec::from_iter(formula.units.iter().cloned());
-    return input::FORMULA {clauses: formula.clauses, units: new_units};
+    return encoder::FORMULA {clauses: formula.clauses, units: new_units};
 }
 
-fn pure_literal_elimination(formula: input::FORMULA) -> (input::FORMULA, Vec<i32>) {
+fn pure_literal_elimination(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec<i32>) {
 
-    fn can_remove_cannot_remove(clauses: HashSet<Vec<i32>>) -> (Vec<i32>, Vec<i32>) {
+    fn can_remove(clauses: HashSet<Vec<i32>>) -> Vec<i32> {
 
         let mut do_not_remove: Vec<i32> = Vec::new();
         let return_clauses: HashSet<Vec<i32>> = clauses.iter().cloned().collect();
@@ -200,11 +196,11 @@ fn pure_literal_elimination(formula: input::FORMULA) -> (input::FORMULA, Vec<i32
                     }
                 }
             }
-            return (remove, do_not_remove);
+            return remove;
         }
     }
 
-    fn clauses_with_no_duplicate_values(mut clauses: HashSet<Vec<i32>>, (to_remove, cannot_remove): (Vec<i32>, Vec<i32>), units: Vec<i32>) -> (input::FORMULA, Vec<i32>) {
+    fn clauses_with_no_duplicate_values(mut clauses: HashSet<Vec<i32>>, to_remove: Vec<i32>, units: Vec<i32>) -> (encoder::FORMULA, Vec<i32>) {
         
         let new_remove = Vec::from_iter(to_remove.iter().cloned());
         let return_remove = Vec::from_iter(to_remove.iter().cloned());
@@ -221,10 +217,10 @@ fn pure_literal_elimination(formula: input::FORMULA) -> (input::FORMULA, Vec<i32
         new_units.extend(new_remove);
         new_units.dedup();
 
-        return (input::FORMULA { clauses: clauses, units: new_units }, return_remove);
+        return (encoder::FORMULA { clauses: clauses, units: new_units }, return_remove);
     }
 
     let clauses = formula.clauses.clone();
     let new_clauses = clauses.clone();
-    return clauses_with_no_duplicate_values(new_clauses, can_remove_cannot_remove(clauses), formula.units);
+    return clauses_with_no_duplicate_values(new_clauses, can_remove(clauses), formula.units);
 }

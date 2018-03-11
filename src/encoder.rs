@@ -53,3 +53,8 @@ fn test_s(test_case: String) -> FORMULA {
 
     return FORMULA::new(clauses, units);
 }
+
+pub fn format_output(positives: Vec<i32>, negatives: Vec<i32>) {
+    println!("{:?}", positives);
+    println!("{:?}", negatives);
+}

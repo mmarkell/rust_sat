@@ -1,4 +1,4 @@
-mod input;
+mod encoder;
 mod solver;
 
 use std::vec::Vec;
@@ -21,8 +21,11 @@ fn main() {
         by adding them to a stack and running them one after the other.
     */
 
-    tests_to_run.push(test[..test.len() -1].to_string());
-    let tests: Vec<(input::FORMULA)> = input::get_tests(tests_to_run);
+    if test.len() > 0 {
+        tests_to_run.push(test[..test.len() - 1].to_string());
+    }
+
+    let tests: Vec<(encoder::FORMULA)> = encoder::get_tests(tests_to_run);
     solver::solve_formulas(tests);
     return;
 }
