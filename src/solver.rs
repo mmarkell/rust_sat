@@ -65,7 +65,7 @@ pub fn solve((formula, mut used_vars, new_vars): (input::FORMULA, Vec<i32>, Vec<
 fn some_repeats(vars: Vec<i32>) -> bool {
     let clone_vars = vars.clone();
     for input in vars {
-        if clone_vars.contains(&(-1 * input)) {
+        if clone_vars.contains(&(-1 * input)) && input != 0 {
             return true;
         }
     }
