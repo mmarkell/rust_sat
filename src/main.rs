@@ -1,11 +1,9 @@
 mod encoder;
 mod solver;
 
-use std::vec::Vec;
 use std::io::stdin;
 
 fn main() {
-    let mut tests_to_run: Vec<(String)> = Vec::new();
     let mut test = String::new();
     loop {
         let mut line = String::new();
@@ -16,16 +14,6 @@ fn main() {
         }
     }
 
-    /*
-        I use a stack of tests so that I could test multiple tests rapidly
-        by adding them to a stack and running them one after the other.
-    */
-
-    if test.len() > 0 {
-        tests_to_run.push(test[..test.len() - 1].to_string());
-    }
-
-    let tests: Vec<(encoder::FORMULA)> = encoder::get_tests(tests_to_run);
-    solver::solve_formulas(tests);
+    encoder::format_output(solver::solve_formula(encoder::get_tests(test[..test.len() - 1].to_string())));
     return;
 }

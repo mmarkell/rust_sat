@@ -8,12 +8,8 @@ pub struct FORMULA {
     pub units: Vec<i32>,
 }
 
-pub fn get_tests (test_descriptors: Vec<String>) -> Vec<(FORMULA)> {
-    let mut tests = Vec::new();
-    for s in test_descriptors {
-        tests.push((test_s(s)));
-    }
-    return tests;
+pub fn get_tests (test_descriptor: String) -> (FORMULA, i32, i32) {
+    return (test_s(test_descriptor), 0, 0);
 }
 
 impl FORMULA {
@@ -54,7 +50,7 @@ fn test_s(test_case: String) -> FORMULA {
     return FORMULA::new(clauses, units);
 }
 
-pub fn format_output(positives: Vec<i32>, negatives: Vec<i32>) {
+pub fn format_output((positives, negatives, width, height): (Vec<i32>, Vec<i32>, i32, i32)) {
     println!("{:?}", positives);
     println!("{:?}", negatives);
 }

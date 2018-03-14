@@ -4,19 +4,17 @@ use std::iter::FromIterator;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-pub fn solve_formulas(formulas: Vec<encoder::FORMULA>) {
-    for formula in formulas {
-        let ((positive, negative), successful) = solve(formula_and_variables(formula));
-        if !successful {
-            println!("unsat");
-        } else {
-            encoder::format_output(positive, negative);
-        }
-        println!("\n");
+pub fn solve_formula((formula, width, height) : (encoder::FORMULA, i32, i32)) -> (Vec<i32>, Vec<i32>, i32, i32) {
+    let ((positive, negative), successful) = solve(formula_and_variables(formula));
+    if !successful {
+        println!("unsat");
+        return (Vec::new(), Vec::new(), width, height);
+    } else {
+        return (positive, negative, width, height);
     }
 }
 
-pub fn solve((formula, mut used_vars, new_vars): (encoder::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
+pub fn solve((formula, mut used_vars, mut new_vars): (encoder::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
     let (formula, _) = pure_literal_elimination(propagate_units(formula));
     let clauses = formula.clauses.clone();
     let new_clauses = formula.clauses.clone();
@@ -42,15 +40,19 @@ pub fn solve((formula, mut used_vars, new_vars): (encoder::FORMULA, Vec<i32>, Ve
     }
     {
         if !new_vars.is_empty() {
-            let x = new_vars[0];
+            let new_vars_copy = new_vars.clone();
+            let (x, idx) = get_most_frequent(new_vars_copy);
             let mut old_used = used_vars.clone();
             used_vars.push(x);
-            let ((l, r), s) = solve((encoder::FORMULA {clauses: new_clauses, units: units}, used_vars, new_vars[1..].to_vec()));
+            new_vars.remove((idx as usize));
+            let left_new = new_vars.clone();
+            let right_new = new_vars.clone();
+            let ((l, r), s) = solve((encoder::FORMULA {clauses: new_clauses, units: units}, used_vars, left_new));
             if s == true || x == 0 {
                 return ((l, r), s);
             } else {
                 old_used.push(-1 * x);
-                let ((l, r), s) = solve((encoder::FORMULA {clauses: copy_new_clauses, units: copy_units}, old_used, new_vars[1..].to_vec()));
+                let ((l, r), s) = solve((encoder::FORMULA {clauses: copy_new_clauses, units: copy_units}, old_used, right_new));
                 if s {
                     return ((l, r), s)
                 }
@@ -59,6 +61,36 @@ pub fn solve((formula, mut used_vars, new_vars): (encoder::FORMULA, Vec<i32>, Ve
     }
 
     return ((Vec::new(), Vec::new()), false); 
+}
+
+fn get_most_frequent(vars: Vec<i32>) -> (i32, i32) {
+    let mut seen: HashMap<i32, (i32, i32)> = HashMap::new();
+    let mut idx = 0;
+    let mut most_common = 0;
+    let mut most_occurrences = 0;
+    for var in vars {
+        match seen.get(&var) {
+            Some(&(occurrences, last_seen)) => {
+                seen.insert(var, (occurrences + 1, idx));
+                if occurrences > most_occurrences {
+                    most_occurrences = occurrences;
+                    most_common = var;
+                }
+            },
+            _ => {
+                seen.insert(var, (1, idx));
+                if 1 > most_occurrences {
+                    most_occurrences = 1;
+                    most_common = var;
+                }
+            },
+        }
+        idx += 1;
+    }
+    match seen.get(&most_common) {
+        Some(&(_, location)) => return (most_common, location),
+        _ => return (0, 0),
+    }
 }
 
 fn some_repeats(vars: Vec<i32>) -> bool {
