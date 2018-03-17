@@ -1,6 +1,5 @@
 use encoder;
 use std::vec::Vec;
-use std::iter::FromIterator;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
@@ -14,8 +13,9 @@ pub fn solve_formula((formula, width, height) : (encoder::FORMULA, i32, i32)) ->
     }
 }
 
-pub fn solve((formula, mut used_vars, mut new_vars): (encoder::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
-    let (formula, _) = pure_literal_elimination(propagate_units(formula));
+pub fn solve((mut formula, mut used_vars, mut new_vars): (encoder::FORMULA, Vec<i32>, Vec<i32>)) -> ((Vec<i32>, Vec<i32>), bool) {
+    formula = propagate_units(formula);
+    let (formula, _) = pure_literal_elimination(formula);
     let clauses = formula.clauses.clone();
     let new_clauses = formula.clauses.clone();
     let copy_new_clauses = formula.clauses.clone();
@@ -24,18 +24,18 @@ pub fn solve((formula, mut used_vars, mut new_vars): (encoder::FORMULA, Vec<i32>
     let repeat_vars = used_vars.clone();
     {
         if some_repeats(repeat_vars) {
-            return ((Vec::new(), Vec::new()), false); 
+            return ((Vec::new(), Vec::new()), false);
         }
     }
     {
-        if some_empty_clause(clauses) { 
-            return ((Vec::new(), Vec::new()), false); 
+        if some_empty_clause(clauses) {
+            return ((Vec::new(), Vec::new()), false);
         }
     }
-    {  
+    {
         let satisfiable_vars = used_vars.clone();
-        if is_satisfiable(formula, satisfiable_vars)  && new_vars.is_empty() { 
-            return (positives_and_negatives(used_vars), true); 
+        if is_satisfiable(formula, satisfiable_vars)  && new_vars.is_empty() {
+            return (positives_and_negatives(used_vars), true);
         }
     }
     {
@@ -60,7 +60,7 @@ pub fn solve((formula, mut used_vars, mut new_vars): (encoder::FORMULA, Vec<i32>
         }
     }
 
-    return ((Vec::new(), Vec::new()), false); 
+    return ((Vec::new(), Vec::new()), false);
 }
 
 fn get_most_frequent(vars: Vec<i32>) -> (i32, i32) {
@@ -150,7 +150,7 @@ fn is_satisfiable(formula: encoder::FORMULA, input_vars: Vec<i32>) -> bool {
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -171,45 +171,73 @@ fn formula_and_variables(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec<i3
             variables.push(u);
         }
     }
-    variables.dedup();
     return (encoder::FORMULA {clauses: clauses_clone, units: formula.units }, Vec::new(), variables);
 }
 
 fn propagate_units(mut formula: encoder::FORMULA) -> encoder::FORMULA {
 
-    fn not_in(u: &i32, clause: &Vec<i32>) -> bool {
-        return !clause.iter().any(|v| (*v == *u));
+    fn contains(clause: Vec<i32>, u: i32) -> bool {
+        return clause.iter().any(|v| (*v == u));
     }
 
-    let units = Vec::from_iter(formula.units.iter().cloned());
-    for ref u in units {
-        formula.clauses.retain(|ref k| not_in(u, k));
+    let clauses = formula.clauses.clone();
+    for clause in clauses {
+        let units = formula.units.clone();
+        let mut copy_clause = clause.clone();
+        let mut to_remove: Vec<i32> = Vec::new();
+        for unit in units {
+            let mut copy_clause_2 = clause.clone();
+            let mut copy_clause_3 = clause.clone();
+            if contains(copy_clause_2, unit) {
+                formula.clauses.remove(&copy_clause_3);
+                to_remove.clear();
+                break;
+            } else if contains(copy_clause_3, -1 * unit) {
+                to_remove.push(-1 * unit);
+            }
+        }
+        if !to_remove.is_empty() {
+            formula.clauses.remove(&copy_clause);
+            let length = copy_clause.len();
+            for value_to_remove in to_remove {
+                let index = match copy_clause.iter().position(|x| *x == value_to_remove) {
+                    Some(v) => v,
+                    _ => length + 1,
+                };
+                if index < length {
+                    copy_clause.remove(index);
+                }
+            }
+            if copy_clause.len() == 1 {
+                formula.units.push(copy_clause[0]);
+            } else {
+                formula.clauses.insert(copy_clause);
+            }
+        }
     }
-
-    let new_units = Vec::from_iter(formula.units.iter().cloned());
-    return encoder::FORMULA {clauses: formula.clauses, units: new_units};
+    return encoder::FORMULA {clauses: formula.clauses, units: formula.units};
 }
 
 fn pure_literal_elimination(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec<i32>) {
 
-    fn can_remove(clauses: HashSet<Vec<i32>>) -> Vec<i32> {
+    fn pure_clauses(clauses: HashSet<Vec<i32>>, units: Vec<i32>) -> Vec<i32> {
 
-        let mut do_not_remove: Vec<i32> = Vec::new();
-        let return_clauses: HashSet<Vec<i32>> = clauses.iter().cloned().collect();
+        let mut non_pure: Vec<i32> = Vec::new();
+        let return_clauses = clauses.clone();
         let mut occurrences: HashMap<i32, i32> = HashMap::new();
         {
             for clause in clauses {
                 for elem in clause {
-                    if occurrences.contains_key(&((elem * -1))) && !do_not_remove.contains(&elem) {
-                        do_not_remove.push(elem);
-                        do_not_remove.push(-1 * elem);
+                    if occurrences.contains_key(&((elem * -1))) && !(non_pure.contains(&elem)) {
+                        non_pure.push(elem);
+                        non_pure.push(-1 * elem);
                     } else {
                         let value = match occurrences.get(&elem) {
                             Some(v) => v + 1,
                             _ => 1,
                         };
                         occurrences.insert(elem, value);
-                    } 
+                    }
                 }
             }
         }
@@ -218,12 +246,7 @@ fn pure_literal_elimination(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec
             let mut remove: Vec<i32> = Vec::new();
             for clause in return_clauses {
                 for elem in clause {
-                    let occurred_once = match occurrences.get(&elem) {
-                        Some(v) => *v == 1,
-                        _ => false,
-                    };
-
-                    if !do_not_remove.contains(&elem) && !occurred_once {
+                    if !non_pure.contains(&elem) && !units.contains(&(-1 * elem)) {
                         remove.push(elem);
                     }
                 }
@@ -232,27 +255,26 @@ fn pure_literal_elimination(formula: encoder::FORMULA) -> (encoder::FORMULA, Vec
         }
     }
 
-    fn clauses_with_no_duplicate_values(mut clauses: HashSet<Vec<i32>>, to_remove: Vec<i32>, units: Vec<i32>) -> (encoder::FORMULA, Vec<i32>) {
-        
-        let new_remove = Vec::from_iter(to_remove.iter().cloned());
-        let return_remove = Vec::from_iter(to_remove.iter().cloned());
-        let mut new_units = Vec::from_iter(units.iter().cloned());
+    fn remove_pure_clauses(mut clauses: HashSet<Vec<i32>>, pure_literals: Vec<i32>, units: Vec<i32>) -> (encoder::FORMULA, Vec<i32>) {
+
+        let new_pure_literals = pure_literals.clone();
+        let return_pure_literals = pure_literals.clone();
+        let mut new_units = units.clone();
 
         fn not_in(u: &i32, clause: &Vec<i32>) -> bool {
             return !clause.iter().any(|v| (*v == *u));
         }
 
-        for ref r in to_remove {
+        for ref r in pure_literals {
             clauses.retain(|ref k| not_in(r, k));
         }
 
-        new_units.extend(new_remove);
-        new_units.dedup();
-
-        return (encoder::FORMULA { clauses: clauses, units: new_units }, return_remove);
+        new_units.extend(new_pure_literals);
+        return (encoder::FORMULA { clauses: clauses, units: new_units }, return_pure_literals);
     }
 
     let clauses = formula.clauses.clone();
+    let units = formula.units.clone();
     let new_clauses = clauses.clone();
-    return clauses_with_no_duplicate_values(new_clauses, can_remove(clauses), formula.units);
+    return remove_pure_clauses(new_clauses, pure_clauses(clauses, units), formula.units);
 }
